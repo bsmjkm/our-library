@@ -6,35 +6,41 @@ $app = require_once __DIR__ . '/../bootstrap/app.php';
 
 /*
 |--------------------------------------------------------------------------
-| SOLUSI VERCEL READ-ONLY
+| SOLUSI VERCEL: STRUKTUR FOLDER LENGKAP
 |--------------------------------------------------------------------------
-| Kita memindahkan folder storage dan cache ke folder /tmp
-| karena Vercel tidak mengizinkan penulisan di folder proyek asli.
+| Kita harus memastikan semua folder storage (Views, Sessions, Logs, Cache)
+| benar-benar ada di dalam /tmp sebelum Laravel berjalan.
 */
 
 $storagePath = '/tmp/storage';
-// Buat folder storage di /tmp jika belum ada
-if (!is_dir($storagePath)) {
-    mkdir($storagePath, 0755, true);
+
+// Daftar folder yang WAJIB dibuat manual
+$dirs = [
+    $storagePath,
+    $storagePath . '/framework/views',    // <-- Ini obat error "valid cache path"
+    $storagePath . '/framework/sessions', // <-- Jaga-jaga biar gak error session
+    $storagePath . '/framework/cache',    // <-- Untuk cache umum
+    $storagePath . '/logs',               // <-- Untuk log error
+    $storagePath . '/bootstrap/cache',    // <-- Untuk cache sistem
+];
+
+foreach ($dirs as $dir) {
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true); // true = recursive creation
+    }
 }
 
-// Buat folder cache khusus di dalam /tmp
-$cachePath = $storagePath . '/bootstrap/cache';
-if (!is_dir($cachePath)) {
-    mkdir($cachePath, 0755, true);
-}
-
-// Beritahu Laravel untuk menggunakan path baru ini
+// Set path baru ke Laravel
 $app->useStoragePath($storagePath);
 
-// Override lokasi file-file cache agar masuk ke /tmp
-$_ENV['APP_SERVICES_CACHE'] = $cachePath . '/services.php';
-$_ENV['APP_PACKAGES_CACHE'] = $cachePath . '/packages.php';
-$_ENV['APP_CONFIG_CACHE']   = $cachePath . '/config.php';
-$_ENV['APP_ROUTES_CACHE']   = $cachePath . '/routes.php';
-$_ENV['APP_EVENTS_CACHE']   = $cachePath . '/events.php';
+// Override lokasi file cache bootstrap
+$_ENV['APP_SERVICES_CACHE'] = $storagePath . '/bootstrap/cache/services.php';
+$_ENV['APP_PACKAGES_CACHE'] = $storagePath . '/bootstrap/cache/packages.php';
+$_ENV['APP_CONFIG_CACHE']   = $storagePath . '/bootstrap/cache/config.php';
+$_ENV['APP_ROUTES_CACHE']   = $storagePath . '/bootstrap/cache/routes.php';
+$_ENV['APP_EVENTS_CACHE']   = $storagePath . '/bootstrap/cache/events.php';
 
-// Jalankan aplikasi seperti biasa
+// Jalankan aplikasi
 $request = Illuminate\Http\Request::capture();
 $response = $app->handle($request);
 $response->send();
